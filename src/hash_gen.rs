@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    constants::{NumSpacesType, HASH_GEN_WORKER_THREADS, SHA_BLOCK_SIZE},
+    constants::{NumSpacesType, CHANNEL_SIZE, HASH_GEN_WORKER_THREADS, SHA_BLOCK_SIZE},
     hash::{Hash, HashPair},
     sha::Sha256,
 };
@@ -22,22 +22,20 @@ fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<Has
         .collect()
 }
 
-pub fn get_reversed_hashes(
+pub fn get_hashes_in_threads(
     start_str: &'static str,
     num_hashes: NumSpacesType,
-) -> Receiver<Vec<HashPair>> {
-    let (block_tx, block_rx) = mpsc::sync_channel(1024 * 100);
-
+    thread_consumers: Vec<Box<impl Fn(Vec<HashPair>) + Send + 'static>>,
+) {
     let mut threads = Vec::new();
 
     // Block computer threads
-    for _ in 0..HASH_GEN_WORKER_THREADS {
-        let (thread_tx, thread_rx) = mpsc::sync_channel::<(Sha256, NumSpacesType)>(1024 * 100);
-        let block_tx_c = block_tx.clone();
+    for c in thread_consumers.into_iter() {
+        let (thread_tx, thread_rx) = mpsc::sync_channel::<(Sha256, NumSpacesType)>(CHANNEL_SIZE);
         thread::spawn(move || {
             while let Ok(data) = thread_rx.recv() {
                 let hashes = get_hashes_for_one_block(data.0, data.1);
-                block_tx_c.send(hashes).unwrap();
+                c(hashes);
             }
         });
 
@@ -65,6 +63,29 @@ pub fn get_reversed_hashes(
             curr_thread = (curr_thread + 1) % HASH_GEN_WORKER_THREADS;
         }
     });
+}
+
+pub fn get_reversed_hashes(
+    start_str: &'static str,
+    num_hashes: NumSpacesType,
+) -> Receiver<Vec<HashPair>> {
+    let (block_tx, block_rx) = mpsc::sync_channel(CHANNEL_SIZE);
+
+    get_hashes_in_threads(
+        start_str,
+        num_hashes,
+        (0..HASH_GEN_WORKER_THREADS)
+            .map(|_| {
+                let block_tx_c = block_tx.clone();
+
+                let x = Box::new(move |hashes| {
+                    block_tx_c.send(hashes).unwrap();
+                });
+
+                x
+            })
+            .collect(),
+    );
 
     block_rx
 }
