@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{Read, Seek, Write},
+    io::{ErrorKind, Read, Seek, Write},
 };
 
 use crate::{
@@ -44,8 +44,14 @@ impl DiskHashMapWriter {
             .unwrap();
 
         loop {
-            self.file.read_exact(&mut buf).unwrap();
-            if HashPair::from_bytes(&buf).num_spaces == 0 {
+            if let Err(e) = self.file.read_exact(&mut buf) {
+                if e.kind() == ErrorKind::UnexpectedEof {
+                    self.file.seek(std::io::SeekFrom::Start(0)).unwrap();
+                    continue;
+                } else {
+                    panic!("{}", e);
+                }
+            } else if HashPair::from_bytes(&buf).num_spaces == 0 {
                 break;
             }
         }
@@ -81,13 +87,21 @@ impl DiskHashMapReader {
             .unwrap();
 
         loop {
-            self.file.read_exact(&mut buf).unwrap();
-            let hp = HashPair::from_bytes(&buf);
+            if let Err(e) = self.file.read_exact(&mut buf) {
+                if e.kind() == ErrorKind::UnexpectedEof {
+                    self.file.seek(std::io::SeekFrom::Start(0)).unwrap();
+                    continue;
+                } else {
+                    panic!("{}", e);
+                }
+            } else {
+                let hp = HashPair::from_bytes(&buf);
 
-            if hp.num_spaces == 0 {
-                return None;
-            } else if hp.hash == hash {
-                return Some(hp);
+                if hp.num_spaces == 0 {
+                    return None;
+                } else if hp.hash == hash {
+                    return Some(hp);
+                }
             }
         }
     }

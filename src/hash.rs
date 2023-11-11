@@ -22,26 +22,22 @@ impl Hash {
                 full_hash[28],
                 full_hash[27],
                 full_hash[26],
+                full_hash[25],
+                full_hash[24] & 0x0f,
             ],
         }
+
         // Self {
-        //     data: [
-        //         full_hash[31],
-        //         full_hash[30],
-        //         full_hash[29],
-        //         full_hash[28],
-        //         full_hash[27],
-        //         full_hash[26],
-        //         full_hash[25],
-        //         full_hash[24] & 0x0f,
-        //     ],
+        //     data: [full_hash[31], full_hash[30], full_hash[29], full_hash[28]],
         // }
     }
 
     pub fn to_u64(&self) -> u64 {
-        let mut buf = [0u8; 8];
-        buf[..NUM_HASH_BYTES].copy_from_slice(&self.data);
-        u64::from_le_bytes(buf)
+        // let mut buf = [0u8; 8];
+        // buf[..NUM_HASH_BYTES].copy_from_slice(&self.data);
+        // u64::from_le_bytes(buf)
+
+        u64::from_le_bytes(self.data)
     }
 }
 

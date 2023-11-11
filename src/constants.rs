@@ -1,8 +1,8 @@
 use crate::hash::HashPair;
 
 // Configuration
-pub const NUM_HASHES: NumSpacesType = 100 * 1000000;
-pub const DESIRED_HEX_MATCHES: usize = 12;
+pub const NUM_HASHES: NumSpacesType = 1000 * 1000000;
+pub const DESIRED_HEX_MATCHES: usize = 15;
 pub const HASH_TABLE_DENSITY: f32 = 0.5;
 
 pub const HASH_GEN_WORKER_THREADS: usize = 16;
