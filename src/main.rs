@@ -8,11 +8,13 @@ mod constants;
 mod disk_hash_map;
 mod hash;
 mod hash_gen;
+mod progress_updater;
 mod sha;
 
 use crate::constants::{HASH_TABLE_FILE_QUOTA, NUM_HASHES};
 use crate::disk_hash_map::DiskHashMapWriter;
 use crate::hash_gen::get_reversed_hashes;
+use crate::progress_updater::Progress;
 
 fn gen_table() {
     println!(
@@ -32,6 +34,8 @@ fn gen_table() {
     println!("Generating hash table...");
     let now = Instant::now();
 
+    let mut prog = Progress::new(NUM_HASHES as usize);
+
     let hashes_fake = get_reversed_hashes(include_str!("confession_fake.txt"), NUM_HASHES);
 
     let mut hash_map = DiskHashMapWriter::new("fake.tmp");
@@ -39,6 +43,7 @@ fn gen_table() {
     while let Ok(fake_hashes) = hashes_fake.recv() {
         for fake_hash in fake_hashes {
             hash_map.insert_pair(fake_hash);
+            prog.increment();
         }
     }
 
@@ -55,6 +60,8 @@ fn search() {
 
     let mut reader = DiskHashMapReader::new("fake.tmp");
 
+    let mut prog = Progress::new(NUM_HASHES as usize);
+
     while let Ok(real_hashes) = hashes_real.recv() {
         for real_hash in real_hashes {
             if let Some(matched) = reader.search(real_hash.hash) {
@@ -63,6 +70,7 @@ fn search() {
                     real_hash.num_spaces, matched.num_spaces
                 );
             }
+            prog.increment();
         }
     }
 

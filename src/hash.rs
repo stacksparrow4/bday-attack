@@ -15,7 +15,14 @@ impl Hash {
     pub fn from_full_hash(full_hash: [u8; 32]) -> Self {
         // Hardcoding for efficiency
         Self {
-            data: [full_hash[31], full_hash[30], full_hash[29], full_hash[28]],
+            data: [
+                full_hash[31],
+                full_hash[30],
+                full_hash[29],
+                full_hash[28],
+                full_hash[27],
+                full_hash[26],
+            ],
         }
         // Self {
         //     data: [
@@ -32,7 +39,9 @@ impl Hash {
     }
 
     pub fn to_u64(&self) -> u64 {
-        u32::from_le_bytes(self.data) as u64
+        let mut buf = [0u8; 8];
+        buf[..NUM_HASH_BYTES].copy_from_slice(&self.data);
+        u64::from_le_bytes(buf)
     }
 }
 
