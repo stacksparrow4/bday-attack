@@ -4,7 +4,7 @@ use std::{
     mem::size_of,
 };
 
-use crate::{constants::NUM_HASH_BYTES, hash_gen::HashPair};
+use crate::{constants::NUM_HASH_BYTES, hash::HashPair};
 
 pub struct HashDiskArray {
     file: File,
@@ -18,8 +18,7 @@ impl HashDiskArray {
     }
 
     pub fn add_hash(&mut self, hash: HashPair) {
-        self.file.write_all(&hash.0).unwrap();
-        self.file.write_all(&usize::to_le_bytes(hash.1)).unwrap();
+        self.file.write_all(hash.to_bytes()).unwrap();
     }
 }
 
@@ -44,10 +43,7 @@ impl Iterator for HashDiskArrayIterator {
     fn next(&mut self) -> Option<Self::Item> {
         let mut data = [0u8; NUM_HASH_BYTES + size_of::<usize>()];
         match self.hda.file.read_exact(&mut data) {
-            Ok(_) => Some((
-                data[..NUM_HASH_BYTES].try_into().unwrap(),
-                usize::from_le_bytes(data[NUM_HASH_BYTES..].try_into().unwrap()),
-            )),
+            Ok(_) => Some(HashPair::from_bytes(&data)),
             Err(_) => None,
         }
     }

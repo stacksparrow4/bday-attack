@@ -4,45 +4,35 @@ use std::{
 };
 
 use crate::{
-    constants::{NUM_HASH_BYTES, SHA_BLOCK_SIZE, THREAD_POOL},
+    constants::{NumSpacesType, HASH_GEN_WORKER_THREADS, SHA_BLOCK_SIZE},
+    hash::{Hash, HashPair},
     sha::Sha256,
 };
 
-pub type HashPair = ([u8; NUM_HASH_BYTES], usize);
-
-fn get_hashes_for_one_block(state: Sha256, num_spaces: usize) -> Vec<HashPair> {
+fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<HashPair> {
     (0..SHA_BLOCK_SIZE)
         .map(|i| {
             let mut s = state.clone();
-            s.update(&b" ".repeat(i));
+            s.update(&b" ".repeat(i as usize));
 
             let full_hash = s.finish();
 
-            (
-                [
-                    full_hash[31],
-                    full_hash[30],
-                    full_hash[29],
-                    full_hash[28],
-                    full_hash[27],
-                    full_hash[26],
-                    full_hash[25],
-                    full_hash[24],
-                ],
-                num_spaces + i,
-            )
+            HashPair::new(Hash::from_full_hash(full_hash), num_spaces + i)
         })
         .collect()
 }
 
-fn get_reversed_hashes(start_str: &'static str, num_hashes: usize) -> Receiver<Vec<HashPair>> {
+pub fn get_reversed_hashes(
+    start_str: &'static str,
+    num_hashes: NumSpacesType,
+) -> Receiver<Vec<HashPair>> {
     let (block_tx, block_rx) = mpsc::channel();
 
     let mut threads = Vec::new();
 
     // Block computer threads
-    for _ in 0..THREAD_POOL {
-        let (thread_tx, thread_rx) = mpsc::channel::<(Sha256, usize)>();
+    for _ in 0..HASH_GEN_WORKER_THREADS {
+        let (thread_tx, thread_rx) = mpsc::channel::<(Sha256, NumSpacesType)>();
         let block_tx_c = block_tx.clone();
         thread::spawn(move || {
             while let Ok(data) = thread_rx.recv() {
@@ -58,20 +48,21 @@ fn get_reversed_hashes(start_str: &'static str, num_hashes: usize) -> Receiver<V
     thread::spawn(move || {
         let mut s = Sha256::default();
         s.update(start_str.as_bytes());
-        let mut padding_needed = SHA_BLOCK_SIZE - start_str.len() % SHA_BLOCK_SIZE;
+        let mut padding_needed =
+            SHA_BLOCK_SIZE - (start_str.len() as NumSpacesType) % SHA_BLOCK_SIZE;
         if padding_needed == SHA_BLOCK_SIZE {
             padding_needed = 0;
         }
-        s.update(&b" ".repeat(padding_needed));
+        s.update(&b" ".repeat(padding_needed as usize));
 
         let mut curr_thread = 0usize;
 
-        for i in (padding_needed..num_hashes).step_by(SHA_BLOCK_SIZE) {
+        for i in (padding_needed..num_hashes).step_by(SHA_BLOCK_SIZE as usize) {
             threads[curr_thread].send((s.clone(), i)).unwrap();
 
             s.update(&b" ".repeat(64));
 
-            curr_thread = (curr_thread + 1) % THREAD_POOL;
+            curr_thread = (curr_thread + 1) % HASH_GEN_WORKER_THREADS;
         }
     });
 

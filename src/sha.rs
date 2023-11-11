@@ -1,5 +1,4 @@
 #![allow(clippy::unreadable_literal)]
-
 use core::default::Default;
 
 const H: [u32; 8] = [
@@ -36,6 +35,7 @@ impl Default for Sha256 {
     }
 }
 
+#[allow(dead_code)]
 impl Sha256 {
     pub fn with_state(state: [u32; 8]) -> Self {
         Self {
