@@ -11,9 +11,10 @@ mod hash_gen;
 mod progress_updater;
 mod sha;
 
-use crate::constants::{HASH_TABLE_FILE_QUOTA, NUM_HASHES};
+use crate::constants::{HASH_SEARCH_WORKER_THREADS, HASH_TABLE_FILE_QUOTA, NUM_HASHES};
 use crate::disk_hash_map::DiskHashMapWriter;
-use crate::hash_gen::get_reversed_hashes;
+use crate::hash::HashPair;
+use crate::hash_gen::{get_hashes_in_threads, get_reversed_hashes};
 use crate::progress_updater::Progress;
 
 fn gen_table() {
@@ -56,22 +57,35 @@ fn search() {
     println!("Searching hash table for collisions...");
     let now = Instant::now();
 
-    let hashes_real = get_reversed_hashes(include_str!("confession_real.txt"), NUM_HASHES);
+    let handles = get_hashes_in_threads(
+        include_str!("confession_real.txt"),
+        NUM_HASHES,
+        (0..HASH_SEARCH_WORKER_THREADS)
+            .map(|worker_id| {
+                let mut reader = DiskHashMapReader::new("fake.tmp");
 
-    let mut reader = DiskHashMapReader::new("fake.tmp");
+                let mut prog = Progress::new((NUM_HASHES as usize) / HASH_SEARCH_WORKER_THREADS);
 
-    let mut prog = Progress::new(NUM_HASHES as usize);
+                move |real_hashes: Vec<HashPair>| {
+                    for real_hash in real_hashes {
+                        if let Some(matched) = reader.search(real_hash.hash) {
+                            println!(
+                                "Collision found with real {} fake {}",
+                                real_hash.num_spaces, matched.num_spaces
+                            );
+                        }
 
-    while let Ok(real_hashes) = hashes_real.recv() {
-        for real_hash in real_hashes {
-            if let Some(matched) = reader.search(real_hash.hash) {
-                println!(
-                    "Collision found with real {} fake {}",
-                    real_hash.num_spaces, matched.num_spaces
-                );
-            }
-            prog.increment();
-        }
+                        if worker_id == 0 {
+                            prog.increment();
+                        }
+                    }
+                }
+            })
+            .collect(),
+    );
+
+    for h in handles {
+        h.join().unwrap();
     }
 
     println!("Finished search in {:.2?}", now.elapsed());

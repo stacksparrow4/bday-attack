@@ -1,6 +1,6 @@
 use std::{
     sync::mpsc::{self, Receiver},
-    thread,
+    thread::{self, JoinHandle},
 };
 
 use crate::{
@@ -22,22 +22,26 @@ fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<Has
         .collect()
 }
 
-pub fn get_hashes_in_threads(
+pub fn get_hashes_in_threads<F>(
     start_str: &'static str,
     num_hashes: NumSpacesType,
-    thread_consumers: Vec<Box<impl Fn(Vec<HashPair>) + Send + 'static>>,
-) {
+    thread_consumers: Vec<F>,
+) -> Vec<JoinHandle<()>>
+where
+    F: FnMut(Vec<HashPair>) + Send + 'static,
+{
+    let mut thread_handles: Vec<JoinHandle<()>> = Vec::new();
     let mut threads = Vec::new();
 
     // Block computer threads
-    for c in thread_consumers.into_iter() {
+    for mut c in thread_consumers.into_iter() {
         let (thread_tx, thread_rx) = mpsc::sync_channel::<(Sha256, NumSpacesType)>(CHANNEL_SIZE);
-        thread::spawn(move || {
+        thread_handles.push(thread::spawn(move || {
             while let Ok(data) = thread_rx.recv() {
                 let hashes = get_hashes_for_one_block(data.0, data.1);
                 c(hashes);
             }
-        });
+        }));
 
         threads.push(thread_tx);
     }
@@ -63,6 +67,8 @@ pub fn get_hashes_in_threads(
             curr_thread = (curr_thread + 1) % HASH_GEN_WORKER_THREADS;
         }
     });
+
+    thread_handles
 }
 
 pub fn get_reversed_hashes(
@@ -78,11 +84,9 @@ pub fn get_reversed_hashes(
             .map(|_| {
                 let block_tx_c = block_tx.clone();
 
-                let x = Box::new(move |hashes| {
+                move |hashes| {
                     block_tx_c.send(hashes).unwrap();
-                });
-
-                x
+                }
             })
             .collect(),
     );
