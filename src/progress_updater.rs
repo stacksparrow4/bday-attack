@@ -1,7 +1,10 @@
+use std::time::Instant;
+
 pub struct Progress {
     curr: usize,
     curr_percent: usize,
     total: usize,
+    start_time: Instant,
 }
 
 impl Progress {
@@ -10,6 +13,7 @@ impl Progress {
             curr: 0,
             curr_percent: 0,
             total,
+            start_time: Instant::now(),
         }
     }
 
@@ -19,7 +23,7 @@ impl Progress {
         let percent = (100 * self.curr) / self.total;
         if percent > self.curr_percent {
             self.curr_percent = percent;
-            println!("{}%", percent);
+            println!("{}% (elapsed {:.2?})", percent, self.start_time.elapsed());
         }
     }
 }
