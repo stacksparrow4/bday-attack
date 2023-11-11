@@ -26,13 +26,13 @@ pub fn get_reversed_hashes(
     start_str: &'static str,
     num_hashes: NumSpacesType,
 ) -> Receiver<Vec<HashPair>> {
-    let (block_tx, block_rx) = mpsc::channel();
+    let (block_tx, block_rx) = mpsc::sync_channel(1024 * 100);
 
     let mut threads = Vec::new();
 
     // Block computer threads
     for _ in 0..HASH_GEN_WORKER_THREADS {
-        let (thread_tx, thread_rx) = mpsc::channel::<(Sha256, NumSpacesType)>();
+        let (thread_tx, thread_rx) = mpsc::sync_channel::<(Sha256, NumSpacesType)>(1024 * 100);
         let block_tx_c = block_tx.clone();
         thread::spawn(move || {
             while let Ok(data) = thread_rx.recv() {

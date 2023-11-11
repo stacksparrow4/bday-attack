@@ -1,4 +1,7 @@
 use clap::{command, Command};
+use disk_hash_map::DiskHashMapReader;
+use std::fs;
+use std::io::ErrorKind;
 use std::time::Instant;
 
 mod constants;
@@ -11,30 +14,20 @@ use crate::constants::{HASH_TABLE_FILE_QUOTA, NUM_HASHES};
 use crate::disk_hash_map::DiskHashMapWriter;
 use crate::hash_gen::get_reversed_hashes;
 
-fn check_hash_table_density() {
+fn gen_table() {
     println!(
-        "Allocating {:.2?} gb file for hash map",
+        "Allocating {:.3?}gb file for hash map",
         (HASH_TABLE_FILE_QUOTA as f32) / 1024.0 / 1024.0 / 1024.0
     );
 
-    println!("We are generating {} hashes", NUM_HASHES);
-    println!(
-        "The table allows {} entries",
-        DiskHashMapWriter::num_entries()
-    );
-    let hash_table_density = (NUM_HASHES as f32) / (DiskHashMapWriter::num_entries() as f32);
-    println!(
-        "This means that {:.2?}% of the table should be used.",
-        100.0 * hash_table_density
-    );
-
-    if hash_table_density > 0.5 {
-        panic!("Density too large! Aborting...");
+    match fs::remove_file("fake.tmp") {
+        Ok(_) => {}
+        Err(e) => {
+            if e.kind() != ErrorKind::NotFound {
+                panic!("{}", e);
+            }
+        }
     }
-}
-
-fn gen_table() {
-    check_hash_table_density();
 
     println!("Generating hash table...");
     let now = Instant::now();
@@ -49,11 +42,31 @@ fn gen_table() {
         }
     }
 
+    hash_map.flush();
+
     println!("Finished generating hash table in {:.2?}", now.elapsed());
 }
 
 fn search() {
-    //TODO
+    println!("Searching hash table for collisions...");
+    let now = Instant::now();
+
+    let hashes_real = get_reversed_hashes(include_str!("confession_real.txt"), NUM_HASHES);
+
+    let mut reader = DiskHashMapReader::new("fake.tmp");
+
+    while let Ok(real_hashes) = hashes_real.recv() {
+        for real_hash in real_hashes {
+            if let Some(matched) = reader.search(real_hash.hash) {
+                println!(
+                    "Collision found with real {} fake {}",
+                    real_hash.num_spaces, matched.num_spaces
+                );
+            }
+        }
+    }
+
+    println!("Finished search in {:.2?}", now.elapsed());
 }
 
 fn main() {
