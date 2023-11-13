@@ -35,7 +35,7 @@ fn gen_table() -> FxHashMap<Hash, NumSpacesType> {
         }
     }
 
-    println!("Finished generating hash table in {:.2?}", now.elapsed());
+    println!("\nFinished generating hash table in {:.2?}", now.elapsed());
 
     hash_map
 }
@@ -59,7 +59,7 @@ fn search(hash_map: FxHashMap<Hash, NumSpacesType>) {
                     for real_hash in real_hashes {
                         if let Some(matched) = hash_map.get(&real_hash.hash) {
                             println!(
-                                "Collision found with real {} fake {}",
+                                "\nCollision found with real {} fake {}",
                                 real_hash.num_spaces, matched
                             );
                             std::process::exit(0);

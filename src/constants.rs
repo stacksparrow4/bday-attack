@@ -1,6 +1,6 @@
 // Configuration
 pub(crate) const NUM_HASHES: NumSpacesType = 200 * 1000000;
-pub(crate) const DESIRED_HEX_MATCHES: usize = 14;
+pub(crate) const DESIRED_HEX_MATCHES: usize = 13;
 
 // Optimization
 pub(crate) const HASH_GEN_WORKER_THREADS: usize = 8;
