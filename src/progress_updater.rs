@@ -23,7 +23,11 @@ impl Progress {
         let percent = (100 * self.curr) / self.total;
         if percent > self.curr_percent {
             self.curr_percent = percent;
-            print!("\r{}% (elapsed {:.2?})", percent, self.start_time.elapsed());
+            print!(
+                "                               \r{}% (elapsed {:.2?})",
+                percent,
+                self.start_time.elapsed()
+            );
             std::io::Write::flush(&mut std::io::stdout()).unwrap();
         }
     }

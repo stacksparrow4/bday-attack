@@ -78,7 +78,7 @@ fn search(hash_map: FxHashMap<Hash, NumSpacesType>) {
         h.join().unwrap();
     }
 
-    println!("Finished search in {:.2?}", now.elapsed());
+    println!("\nFinished search in {:.2?}", now.elapsed());
 }
 
 fn main() {
