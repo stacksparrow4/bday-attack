@@ -1,8 +1,8 @@
 use crate::constants::{NumSpacesType, DESIRED_HEX_MATCHES, NUM_HASH_BYTES, SHA_BLOCK_SIZE};
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
 pub(crate) struct Hash {
-    pub(crate) data: [u8; NUM_HASH_BYTES],
+    data: [u8; NUM_HASH_BYTES],
 }
 
 impl Hash {
@@ -15,12 +15,22 @@ impl Hash {
     }
 }
 
+#[derive(Copy, Clone)]
 pub(crate) struct HashPair {
     pub(crate) hash: Hash,
     pub(crate) num_spaces: NumSpacesType,
 }
 
 impl HashPair {
+    pub(crate) fn blank() -> Self {
+        Self {
+            hash: Hash {
+                data: [0u8; NUM_HASH_BYTES],
+            },
+            num_spaces: 0,
+        }
+    }
+
     pub(crate) fn new(hash: Hash, num_spaces: NumSpacesType) -> Self {
         Self { hash, num_spaces }
     }
