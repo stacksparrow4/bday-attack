@@ -59,10 +59,9 @@ fn search(hash_map: FxHashMap<Hash, NumSpacesType>) {
                     for real_hash in real_hashes {
                         if let Some(matched) = hash_map.get(&real_hash.hash) {
                             println!(
-                                "\nCollision found with real {} fake {}",
+                                "\nCollision found with real {} fake {}\n",
                                 real_hash.num_spaces, matched
                             );
-                            std::process::exit(0);
                         }
 
                         if worker_id == 0 {
