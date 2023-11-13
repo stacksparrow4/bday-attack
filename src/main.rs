@@ -1,6 +1,7 @@
 use constants::NumSpacesType;
 use hash::Hash;
-use std::collections::HashMap;
+// use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -14,8 +15,9 @@ use crate::constants::{HASH_SEARCH_WORKER_THREADS, NUM_HASHES};
 use crate::hash::HashPair;
 use crate::hash_gen::{get_hashes_in_threads, get_reversed_hashes};
 use crate::progress_updater::Progress;
+use std::hash::BuildHasherDefault;
 
-fn gen_table() -> HashMap<Hash, NumSpacesType> {
+fn gen_table() -> FxHashMap<Hash, NumSpacesType> {
     println!("Generating hash table...");
     let now = Instant::now();
 
@@ -23,7 +25,8 @@ fn gen_table() -> HashMap<Hash, NumSpacesType> {
 
     let hashes_fake = get_reversed_hashes(include_str!("confession_fake.txt"), NUM_HASHES);
 
-    let mut hash_map = HashMap::new();
+    let mut hash_map =
+        FxHashMap::with_capacity_and_hasher(NUM_HASHES as usize, BuildHasherDefault::default());
 
     while let Ok(fake_hashes) = hashes_fake.recv() {
         for fake_hash in fake_hashes {
@@ -37,7 +40,7 @@ fn gen_table() -> HashMap<Hash, NumSpacesType> {
     hash_map
 }
 
-fn search(hash_map: HashMap<Hash, NumSpacesType>) {
+fn search(hash_map: FxHashMap<Hash, NumSpacesType>) {
     println!("Searching hash table for collisions...");
     let now = Instant::now();
 
@@ -59,6 +62,7 @@ fn search(hash_map: HashMap<Hash, NumSpacesType>) {
                                 "Collision found with real {} fake {}",
                                 real_hash.num_spaces, matched
                             );
+                            std::process::exit(0);
                         }
 
                         if worker_id == 0 {
@@ -78,6 +82,7 @@ fn search(hash_map: HashMap<Hash, NumSpacesType>) {
 }
 
 fn main() {
+    println!();
     let hm = gen_table();
     search(hm);
 }

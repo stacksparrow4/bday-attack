@@ -22,7 +22,7 @@ fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<Has
         .collect()
 }
 
-pub fn get_hashes_in_threads<F>(
+pub(crate) fn get_hashes_in_threads<F>(
     start_str: &'static str,
     num_hashes: NumSpacesType,
     thread_consumers: Vec<F>,
@@ -71,7 +71,7 @@ where
     thread_handles
 }
 
-pub fn get_reversed_hashes(
+pub(crate) fn get_reversed_hashes(
     start_str: &'static str,
     num_hashes: NumSpacesType,
 ) -> Receiver<Vec<HashPair>> {

@@ -17,7 +17,7 @@ const K: [u32; 64] = [
 ];
 
 #[derive(Clone, Debug)]
-pub struct Sha256 {
+pub(crate) struct Sha256 {
     state: [u32; 8],
     completed_data_blocks: u64,
     pending: [u8; 64],
@@ -37,7 +37,7 @@ impl Default for Sha256 {
 
 #[allow(dead_code)]
 impl Sha256 {
-    pub fn with_state(state: [u32; 8]) -> Self {
+    pub(crate) fn with_state(state: [u32; 8]) -> Self {
         Self {
             state,
             completed_data_blocks: 0,
@@ -89,7 +89,7 @@ impl Sha256 {
         }
     }
 
-    pub fn update(&mut self, data: &[u8]) {
+    pub(crate) fn update(&mut self, data: &[u8]) {
         let mut len = data.len();
         let mut offset = 0;
 
@@ -119,7 +119,7 @@ impl Sha256 {
         }
     }
 
-    pub fn finish(mut self) -> [u8; 32] {
+    pub(crate) fn finish(mut self) -> [u8; 32] {
         let data_bits = self.completed_data_blocks * 512 + self.num_pending as u64 * 8;
         let mut pending = [0u8; 72];
         pending[0] = 128;
@@ -139,13 +139,13 @@ impl Sha256 {
         unsafe { *(self.state.as_ptr() as *const [u8; 32]) }
     }
 
-    pub fn digest(data: &[u8]) -> [u8; 32] {
+    pub(crate) fn digest(data: &[u8]) -> [u8; 32] {
         let mut sha256 = Self::default();
         sha256.update(data);
         sha256.finish()
     }
 
-    pub fn state(&self) -> [u32; 8] {
+    pub(crate) fn state(&self) -> [u32; 8] {
         self.state
     }
 }

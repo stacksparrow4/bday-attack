@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-pub struct Progress {
+pub(crate) struct Progress {
     curr: usize,
     curr_percent: usize,
     total: usize,
@@ -8,7 +8,7 @@ pub struct Progress {
 }
 
 impl Progress {
-    pub fn new(total: usize) -> Self {
+    pub(crate) fn new(total: usize) -> Self {
         Self {
             curr: 0,
             curr_percent: 0,
@@ -17,13 +17,14 @@ impl Progress {
         }
     }
 
-    pub fn increment(&mut self) {
+    pub(crate) fn increment(&mut self) {
         self.curr += 1;
 
         let percent = (100 * self.curr) / self.total;
         if percent > self.curr_percent {
             self.curr_percent = percent;
-            println!("{}% (elapsed {:.2?})", percent, self.start_time.elapsed());
+            print!("\r{}% (elapsed {:.2?})", percent, self.start_time.elapsed());
+            std::io::Write::flush(&mut std::io::stdout()).unwrap();
         }
     }
 }

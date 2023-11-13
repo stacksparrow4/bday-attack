@@ -1,12 +1,12 @@
 use crate::constants::{NumSpacesType, DESIRED_HEX_MATCHES, NUM_HASH_BYTES};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Hash {
+pub(crate) struct Hash {
     data: [u8; NUM_HASH_BYTES],
 }
 
 impl Hash {
-    pub fn from_full_hash(full_hash: [u8; 32]) -> Self {
+    pub(crate) fn from_full_hash(full_hash: [u8; 32]) -> Self {
         let mut data: [u8; NUM_HASH_BYTES] = full_hash[(32 - NUM_HASH_BYTES)..].try_into().unwrap();
         data.reverse();
         if DESIRED_HEX_MATCHES % 2 == 1 {
@@ -16,13 +16,13 @@ impl Hash {
     }
 }
 
-pub struct HashPair {
-    pub hash: Hash,
-    pub num_spaces: NumSpacesType,
+pub(crate) struct HashPair {
+    pub(crate) hash: Hash,
+    pub(crate) num_spaces: NumSpacesType,
 }
 
 impl HashPair {
-    pub fn new(hash: Hash, num_spaces: NumSpacesType) -> Self {
+    pub(crate) fn new(hash: Hash, num_spaces: NumSpacesType) -> Self {
         Self { hash, num_spaces }
     }
 }
