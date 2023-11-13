@@ -1,4 +1,5 @@
 use std::{
+    mem::{self, MaybeUninit},
     sync::mpsc::{self, Receiver},
     thread::{self, JoinHandle},
 };
@@ -11,7 +12,8 @@ use crate::{
 // use libc::sched_param;
 
 fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> HashBatch {
-    let mut results = [HashPair::blank(); SHA_BLOCK_SIZE as usize];
+    let mut results: [MaybeUninit<HashPair>; SHA_BLOCK_SIZE as usize] =
+        unsafe { MaybeUninit::uninit().assume_init() };
 
     for i in 0..SHA_BLOCK_SIZE {
         let mut s = state.clone();
@@ -19,10 +21,13 @@ fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> HashBat
 
         let full_hash = s.finish();
 
-        results[i as usize] = HashPair::new(Hash::from_full_hash(full_hash), num_spaces + i);
+        results[i as usize] = MaybeUninit::new(HashPair::new(
+            Hash::from_full_hash(full_hash),
+            num_spaces + i,
+        ));
     }
 
-    results
+    unsafe { mem::transmute::<_, HashBatch>(results) }
 }
 
 pub(crate) fn get_hashes_in_threads<F>(
