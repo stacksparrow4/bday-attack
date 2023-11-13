@@ -8,6 +8,7 @@ use crate::{
     hash::{Hash, HashPair},
     sha::Sha256,
 };
+// use libc::sched_param;
 
 fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<HashPair> {
     (0..SHA_BLOCK_SIZE)
@@ -37,6 +38,13 @@ where
     for mut c in thread_consumers.into_iter() {
         let (thread_tx, thread_rx) = mpsc::sync_channel::<(Sha256, NumSpacesType)>(CHANNEL_SIZE);
         thread_handles.push(thread::spawn(move || {
+            // let mut sched_param =
+            //     unsafe { std::mem::MaybeUninit::<libc::sched_param>::zeroed().assume_init() };
+            // sched_param.sched_priority = -20;
+            // unsafe {
+            //     libc::pthread_setschedparam(libc::pthread_self(), libc::SCHED_RR, &sched_param)
+            // };
+
             while let Ok(data) = thread_rx.recv() {
                 let hashes = get_hashes_for_one_block(data.0, data.1);
                 c(hashes);
@@ -48,6 +56,11 @@ where
 
     // Work giver thread
     thread::spawn(move || {
+        // let mut sched_param =
+        //     unsafe { std::mem::MaybeUninit::<libc::sched_param>::zeroed().assume_init() };
+        // sched_param.sched_priority = -20;
+        // unsafe { libc::pthread_setschedparam(libc::pthread_self(), libc::SCHED_RR, &sched_param) };
+
         let mut s = Sha256::default();
         s.update(start_str.as_bytes());
         let mut padding_needed =

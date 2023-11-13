@@ -3,8 +3,8 @@ pub(crate) const NUM_HASHES: NumSpacesType = 200 * 1000000;
 pub(crate) const DESIRED_HEX_MATCHES: usize = 14;
 
 // Optimization
-pub(crate) const HASH_GEN_WORKER_THREADS: usize = 16;
-pub(crate) const HASH_SEARCH_WORKER_THREADS: usize = 16;
+pub(crate) const HASH_GEN_WORKER_THREADS: usize = 8;
+pub(crate) const HASH_SEARCH_WORKER_THREADS: usize = 8;
 pub(crate) const CHANNEL_SIZE: usize = 100 * 1024;
 
 // Calculated
