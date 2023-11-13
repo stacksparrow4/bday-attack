@@ -8,7 +8,6 @@ pub struct Hash {
 impl Hash {
     pub fn from_full_hash(full_hash: [u8; 32]) -> Self {
         let mut data: [u8; NUM_HASH_BYTES] = full_hash[(32 - NUM_HASH_BYTES)..].try_into().unwrap();
-        data.reverse();
         if DESIRED_HEX_MATCHES % 2 == 1 {
             data[0] &= 0x0f;
         }
