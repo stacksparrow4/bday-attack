@@ -5,11 +5,11 @@ use std::{
 
 use crate::{
     constants::{NumSpacesType, CHANNEL_SIZE, HASH_GEN_WORKER_THREADS, SHA_BLOCK_SIZE},
-    hash::{Hash, HashPair},
+    hash::{HashLastDigits, HashLastDigitsPair},
     sha::Sha256,
 };
 
-fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<HashPair> {
+fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<HashLastDigitsPair> {
     (0..SHA_BLOCK_SIZE)
         .map(|i| {
             let mut s = state.clone();
@@ -17,7 +17,7 @@ fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<Has
 
             let full_hash = s.finish();
 
-            HashPair::new(Hash::from_full_hash(full_hash), num_spaces + i)
+            (HashLastDigits::from_full_hash(full_hash), num_spaces + i)
         })
         .collect()
 }
@@ -28,7 +28,7 @@ pub(crate) fn get_hashes_in_threads<F>(
     thread_consumers: Vec<F>,
 ) -> Vec<JoinHandle<()>>
 where
-    F: FnMut(Vec<HashPair>) + Send + 'static,
+    F: FnMut(Vec<HashLastDigitsPair>) + Send + 'static,
 {
     let mut thread_handles: Vec<JoinHandle<()>> = Vec::new();
     let mut threads = Vec::new();
@@ -74,7 +74,7 @@ where
 pub(crate) fn get_reversed_hashes(
     start_str: &'static str,
     num_hashes: NumSpacesType,
-) -> Receiver<Vec<HashPair>> {
+) -> Receiver<Vec<HashLastDigitsPair>> {
     let (block_tx, block_rx) = mpsc::sync_channel(CHANNEL_SIZE);
 
     get_hashes_in_threads(
