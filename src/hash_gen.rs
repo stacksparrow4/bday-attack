@@ -5,22 +5,24 @@ use std::{
 
 use crate::{
     constants::{NumSpacesType, CHANNEL_SIZE, HASH_GEN_WORKER_THREADS, SHA_BLOCK_SIZE},
-    hash::{Hash, HashPair},
+    hash::{Hash, HashBatch, HashPair},
     sha::Sha256,
 };
 // use libc::sched_param;
 
-fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<HashPair> {
-    (0..SHA_BLOCK_SIZE)
-        .map(|i| {
-            let mut s = state.clone();
-            s.update(&b" ".repeat(i as usize));
+fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> HashBatch {
+    let mut results = [HashPair::blank(); SHA_BLOCK_SIZE as usize];
 
-            let full_hash = s.finish();
+    for i in 0..SHA_BLOCK_SIZE {
+        let mut s = state.clone();
+        s.update(&b" ".repeat(i as usize));
 
-            HashPair::new(Hash::from_full_hash(full_hash), num_spaces + i)
-        })
-        .collect()
+        let full_hash = s.finish();
+
+        results[i as usize] = HashPair::new(Hash::from_full_hash(full_hash), num_spaces + i);
+    }
+
+    results
 }
 
 pub(crate) fn get_hashes_in_threads<F>(
@@ -29,7 +31,7 @@ pub(crate) fn get_hashes_in_threads<F>(
     thread_consumers: Vec<F>,
 ) -> Vec<JoinHandle<()>>
 where
-    F: FnMut(Vec<HashPair>) + Send + 'static,
+    F: FnMut(HashBatch) + Send + 'static,
 {
     let mut thread_handles: Vec<JoinHandle<()>> = Vec::new();
     let mut threads = Vec::new();
@@ -87,7 +89,7 @@ where
 pub(crate) fn get_reversed_hashes(
     start_str: &'static str,
     num_hashes: NumSpacesType,
-) -> Receiver<Vec<HashPair>> {
+) -> Receiver<HashBatch> {
     let (block_tx, block_rx) = mpsc::sync_channel(CHANNEL_SIZE);
 
     get_hashes_in_threads(
