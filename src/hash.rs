@@ -1,4 +1,4 @@
-use crate::constants::{NumSpacesType, DESIRED_HEX_MATCHES, NUM_HASH_BYTES};
+use crate::constants::{NumSpacesType, DESIRED_HEX_MATCHES, NUM_HASH_BYTES, PREHASH_SIZE};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct HashLastDigits {
@@ -14,8 +14,10 @@ impl HashLastDigits {
         Self { data }
     }
 
-    pub(crate) fn hash32(&self) -> u32 {
-        u32::from_le_bytes(self.data[(NUM_HASH_BYTES - 4)..].try_into().unwrap())
+    pub(crate) fn prehash(&self) -> usize {
+        let mut new_data = [0u8; 8];
+        new_data[..NUM_HASH_BYTES].copy_from_slice(&self.data);
+        usize::from_le_bytes(new_data) & ((1 << PREHASH_SIZE) - 1)
     }
 }
 

@@ -1,6 +1,8 @@
 // Configuration
-pub(crate) const NUM_HASHES: NumSpacesType = 1 * 1000000;
-pub(crate) const DESIRED_HEX_MATCHES: usize = 10;
+pub(crate) const NUM_HASHES: NumSpacesType = 4000 * 1000000;
+pub(crate) const DESIRED_HEX_MATCHES: usize = 16;
+
+pub(crate) const PREHASH_SIZE: usize = 34; // About 2GB per bitvec
 
 // Optimization
 pub(crate) const HASH_GEN_WORKER_THREADS: usize = 8;
