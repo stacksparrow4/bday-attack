@@ -1,6 +1,6 @@
 use crate::constants::{NumSpacesType, DESIRED_HEX_MATCHES, NUM_HASH_BYTES};
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct HashLastDigits {
     data: [u8; NUM_HASH_BYTES],
 }

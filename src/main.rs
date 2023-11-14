@@ -29,6 +29,10 @@ fn gen_table() -> FxHashMap<HashLastDigits, NumSpacesType> {
 
     while let Ok(fake_hashes) = hashes_fake.recv() {
         for fake_hash in fake_hashes {
+            if fake_hash.1 == 7062734 {
+                println!("\n\n{:?}\n\n", fake_hash.0);
+            }
+
             hash_map.insert(fake_hash.0, fake_hash.1);
             prog.increment();
         }
@@ -56,6 +60,10 @@ fn search(hash_map: FxHashMap<HashLastDigits, NumSpacesType>) {
 
                 move |real_hashes: Vec<HashLastDigitsPair>| {
                     for real_hash in real_hashes {
+                        if real_hash.1 == 125431607 {
+                            println!("\n\n{:?}\n\n", real_hash.0);
+                        }
+
                         if let Some(matched) = hash_map.get(&real_hash.0) {
                             println!(
                                 "\nCollision found with real {} fake {}\n",
