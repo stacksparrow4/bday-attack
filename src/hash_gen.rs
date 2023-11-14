@@ -1,8 +1,13 @@
 use std::{
     fs,
-    sync::mpsc::{self, Receiver},
+    sync::{
+        mpsc::{self, Receiver},
+        Arc,
+    },
     thread::{self, JoinHandle},
 };
+
+use bitvec::vec::BitVec;
 
 use crate::{
     constants::{LineMaskType, CHANNEL_SIZE, NUM_THREADS, THREADED_BITS},
@@ -24,7 +29,6 @@ fn hash_lines(data: &str, mut line_mask: LineMaskType) -> HashLastDigits {
 }
 
 pub(crate) fn line_mask_to_file(fname: &str, data: &str, mut line_mask: LineMaskType) {
-    // fs::write(fname,
     let mut s = String::new();
     for l in data.lines() {
         s.push_str(l);
@@ -74,6 +78,61 @@ pub(crate) fn get_hashes(
             block_tx_c.send(hashes).unwrap();
         }
     });
+
+    block_rx
+}
+
+pub(crate) fn get_hashes_in_threads_using_mask<F, G>(
+    start_str: &'static str,
+    num_hashes: LineMaskType,
+    consumer_generator: F,
+    mask: BitVec,
+) -> Vec<JoinHandle<()>>
+where
+    F: Fn(LineMaskType) -> G,
+    G: FnMut(HashLastDigitsPair) + Send + 'static,
+{
+    let mask = Arc::new(mask);
+
+    (0..NUM_THREADS)
+        .map(move |worker_id| {
+            let mask = mask.clone();
+
+            let mut consumer = consumer_generator(worker_id);
+
+            thread::spawn(move || {
+                for i in 0..(num_hashes / NUM_THREADS) {
+                    let line_mask = worker_id | (i << THREADED_BITS);
+
+                    if *mask.get(line_mask as usize).unwrap() {
+                        let result = hash_lines(start_str, line_mask);
+                        consumer((result, line_mask));
+                    }
+                }
+            })
+        })
+        .collect()
+}
+
+pub(crate) fn get_hashes_using_mask(
+    start_str: &'static str,
+    num_hashes: LineMaskType,
+    mask: BitVec,
+) -> Receiver<HashLastDigitsPair> {
+    let (block_tx, block_rx) = mpsc::sync_channel(CHANNEL_SIZE);
+
+    get_hashes_in_threads_using_mask(
+        start_str,
+        num_hashes,
+        move |_| {
+            let block_tx_c = block_tx.clone();
+
+            move |hashes| {
+                block_tx_c.send(hashes).unwrap();
+            }
+        },
+        mask,
+    );
 
     block_rx
 }

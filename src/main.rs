@@ -15,7 +15,9 @@ mod sha;
 
 use crate::constants::{NUM_HASHES, NUM_THREADS, PREHASH_SIZE};
 use crate::hash::HashLastDigitsPair;
-use crate::hash_gen::{get_hashes, get_hashes_in_threads, line_mask_to_file};
+use crate::hash_gen::{
+    get_hashes, get_hashes_in_threads, get_hashes_using_mask, line_mask_to_file,
+};
 use crate::progress_updater::Progress;
 
 const FAKE: &str = include_str!("confession_fake.txt");
@@ -66,15 +68,13 @@ fn gen_table(filter_fake: BitVec, total: usize) -> FxHashMap<HashLastDigits, Lin
 
     let mut prog = Progress::new(total);
 
-    let hashes_fake = get_hashes(FAKE, NUM_HASHES);
+    let hashes_fake = get_hashes_using_mask(FAKE, NUM_HASHES, filter_fake);
 
     let mut hash_map = FxHashMap::default();
 
     while let Ok((fake_hash, fake_num)) = hashes_fake.recv() {
-        if *filter_fake.get(fake_num as usize).unwrap() {
-            hash_map.insert(fake_hash, fake_num);
-            prog.increment();
-        }
+        hash_map.insert(fake_hash, fake_num);
+        prog.increment();
     }
 
     println!("\nFinished generating hash table in {:.2?}", now.elapsed());
