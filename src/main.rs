@@ -13,11 +13,9 @@ mod hash_gen;
 mod progress_updater;
 mod sha;
 
-use crate::constants::{NUM_HASHES, NUM_THREADS, PREHASH_SIZE};
+use crate::constants::{DESIRED_HEX_MATCHES, NUM_HASHES, NUM_THREADS, PREHASH_SIZE};
 use crate::hash::HashLastDigitsPair;
-use crate::hash_gen::{
-    get_hashes, get_hashes_in_threads, get_hashes_using_mask, line_mask_to_file,
-};
+use crate::hash_gen::{get_hashes, get_hashes_in_threads, line_mask_to_file};
 use crate::progress_updater::Progress;
 
 const FAKE: &str = include_str!("confession_fake.txt");
@@ -27,27 +25,27 @@ fn gen_fake_filter() -> (BitVec, usize) {
     println!("Generating filter...");
     let now = Instant::now();
 
-    let mut prog = Progress::new((NUM_HASHES as usize) * 2);
+    let mut prog = Progress::new((NUM_HASHES) * 2);
 
     let mut all_real = bitvec![0; 1<<PREHASH_SIZE];
 
-    let rx = get_hashes(REAL, NUM_HASHES);
+    let rx = get_hashes(REAL, None);
     while let Ok((h, _)) = rx.recv() {
         all_real.set(h.prehash(), true);
         prog.increment();
     }
 
-    let mut filter_fake = bitvec![0; NUM_HASHES as usize + 64];
+    let mut filter_fake = bitvec![0; NUM_HASHES  + 64];
 
     let mut tot = 0usize;
 
-    let rx = get_hashes(FAKE, NUM_HASHES);
+    let rx = get_hashes(FAKE, None);
     while let Ok((h, hn)) = rx.recv() {
         let h32 = h.prehash();
 
         if *all_real.get(h32).unwrap() {
             // This is a collision with something in the real array
-            filter_fake.set(hn as usize, true);
+            filter_fake.set(hn, true);
 
             tot += 1;
         }
@@ -55,7 +53,7 @@ fn gen_fake_filter() -> (BitVec, usize) {
         prog.increment();
     }
 
-    println!("\nRatio: {}%", 100 * tot / (NUM_HASHES as usize));
+    println!("\nRatio: {}%", 100 * tot / (NUM_HASHES));
 
     println!("\nFinished generating filter in {:.2?}", now.elapsed());
 
@@ -68,7 +66,7 @@ fn gen_table(filter_fake: BitVec, total: usize) -> FxHashMap<HashLastDigits, Lin
 
     let mut prog = Progress::new(total);
 
-    let hashes_fake = get_hashes_using_mask(FAKE, NUM_HASHES, filter_fake);
+    let hashes_fake = get_hashes(FAKE, Some(filter_fake));
 
     let mut hash_map = FxHashMap::default();
 
@@ -88,29 +86,33 @@ fn search(hash_map: FxHashMap<HashLastDigits, LineMaskType>) {
 
     let hash_map = Arc::new(hash_map);
 
-    let handles = get_hashes_in_threads(REAL, NUM_HASHES, |worker_id| {
-        let hash_map = hash_map.clone();
+    let handles = get_hashes_in_threads(
+        REAL,
+        |worker_id| {
+            let hash_map = hash_map.clone();
 
-        let mut prog = Progress::new((NUM_HASHES / NUM_THREADS) as usize);
+            let mut prog = Progress::new(NUM_HASHES / NUM_THREADS);
 
-        move |real_hash: HashLastDigitsPair| {
-            if let Some(fake) = hash_map.get(&real_hash.0) {
-                println!(
-                    "\nCollision found with real {} fake {}\n",
-                    real_hash.1, fake
-                );
+            move |real_hash: HashLastDigitsPair| {
+                if let Some(fake) = hash_map.get(&real_hash.0) {
+                    println!(
+                        "\nCollision of len {} found! Writing to txt files...\n",
+                        DESIRED_HEX_MATCHES
+                    );
 
-                line_mask_to_file("fake_forged.txt", FAKE, *fake);
-                line_mask_to_file("real_forged.txt", REAL, real_hash.1);
+                    line_mask_to_file("fake_forged.txt", FAKE, *fake);
+                    line_mask_to_file("real_forged.txt", REAL, real_hash.1);
 
-                process::exit(0);
+                    process::exit(0);
+                }
+
+                if worker_id == 0 {
+                    prog.increment();
+                }
             }
-
-            if worker_id == 0 {
-                prog.increment();
-            }
-        }
-    });
+        },
+        None,
+    );
 
     for h in handles {
         h.join().unwrap();
