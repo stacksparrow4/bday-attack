@@ -11,15 +11,8 @@ def h(x):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: ./test.py <num1> <num2>")
-        exit(1)
-
-    num1 = int(sys.argv[1])
-    num2 = int(sys.argv[2])
-
-    h1 = h(open("src/confession_real.txt", "rb").read() + b" "*num1)
-    h2 = h(open("src/confession_fake.txt", "rb").read() + b" "*num2)
+    h1 = h(open("real_forged.txt", "rb").read())
+    h2 = h(open("fake_forged.txt", "rb").read())
 
     print("Hash of real:", h1)
     print("Hash of fake:", h2)

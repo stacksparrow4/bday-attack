@@ -1,4 +1,4 @@
-use crate::constants::{NumSpacesType, DESIRED_HEX_MATCHES, NUM_HASH_BYTES, PREHASH_SIZE};
+use crate::constants::{LineMaskType, DESIRED_HEX_MATCHES, NUM_HASH_BYTES, PREHASH_SIZE};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct HashLastDigits {
@@ -21,4 +21,4 @@ impl HashLastDigits {
     }
 }
 
-pub(crate) type HashLastDigitsPair = (HashLastDigits, NumSpacesType);
+pub(crate) type HashLastDigitsPair = (HashLastDigits, LineMaskType);

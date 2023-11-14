@@ -1,95 +1,79 @@
 use std::{
+    fs,
     sync::mpsc::{self, Receiver},
     thread::{self, JoinHandle},
 };
 
 use crate::{
-    constants::{NumSpacesType, CHANNEL_SIZE, HASH_GEN_WORKER_THREADS, SHA_BLOCK_SIZE},
+    constants::{LineMaskType, CHANNEL_SIZE, NUM_THREADS, THREADED_BITS},
     hash::{HashLastDigits, HashLastDigitsPair},
     sha::Sha256,
 };
 
-fn get_hashes_for_one_block(state: Sha256, num_spaces: NumSpacesType) -> Vec<HashLastDigitsPair> {
-    (0..SHA_BLOCK_SIZE)
-        .map(|i| {
-            let mut s = state.clone();
-            s.update(&b" ".repeat(i as usize));
+fn hash_lines(data: &str, mut line_mask: LineMaskType) -> HashLastDigits {
+    let mut s = Sha256::default();
+    for l in data.lines() {
+        s.update(l.as_bytes());
+        if line_mask & 1 == 1 {
+            s.update(b" ");
+        }
+        s.update(b"\n");
+        line_mask >>= 1;
+    }
+    HashLastDigits::from_full_hash(s.finish())
+}
 
-            let full_hash = s.finish();
+pub(crate) fn line_mask_to_file(fname: &str, data: &str, mut line_mask: LineMaskType) {
+    // fs::write(fname,
+    let mut s = String::new();
+    for l in data.lines() {
+        s.push_str(l);
+        if line_mask & 1 == 1 {
+            s.push(' ');
+        }
+        s.push('\n');
+        line_mask >>= 1;
+    }
+    fs::write(fname, s).unwrap();
+}
 
-            (HashLastDigits::from_full_hash(full_hash), num_spaces + i)
+pub(crate) fn get_hashes_in_threads<F, G>(
+    start_str: &'static str,
+    num_hashes: LineMaskType,
+    consumer_generator: F,
+) -> Vec<JoinHandle<()>>
+where
+    F: Fn(LineMaskType) -> G,
+    G: FnMut(HashLastDigitsPair) + Send + 'static,
+{
+    (0..NUM_THREADS)
+        .map(|worker_id| {
+            let mut consumer = consumer_generator(worker_id);
+
+            thread::spawn(move || {
+                for i in 0..(num_hashes / NUM_THREADS) {
+                    let line_mask = worker_id | (i << THREADED_BITS);
+                    let result = hash_lines(start_str, line_mask);
+                    consumer((result, line_mask));
+                }
+            })
         })
         .collect()
 }
 
-pub(crate) fn get_hashes_in_threads<F>(
-    start_str: &'static str,
-    num_hashes: NumSpacesType,
-    thread_consumers: Vec<F>,
-) -> Vec<JoinHandle<()>>
-where
-    F: FnMut(Vec<HashLastDigitsPair>) + Send + 'static,
-{
-    let mut thread_handles: Vec<JoinHandle<()>> = Vec::new();
-    let mut threads = Vec::new();
-
-    // Block computer threads
-    for mut c in thread_consumers.into_iter() {
-        let (thread_tx, thread_rx) = mpsc::sync_channel::<(Sha256, NumSpacesType)>(CHANNEL_SIZE);
-        thread_handles.push(thread::spawn(move || {
-            while let Ok(data) = thread_rx.recv() {
-                let hashes = get_hashes_for_one_block(data.0, data.1);
-                c(hashes);
-            }
-        }));
-
-        threads.push(thread_tx);
-    }
-
-    // Work giver thread
-    thread::spawn(move || {
-        let mut s = Sha256::default();
-        s.update(start_str.as_bytes());
-        let mut padding_needed =
-            SHA_BLOCK_SIZE - (start_str.len() as NumSpacesType) % SHA_BLOCK_SIZE;
-        if padding_needed == SHA_BLOCK_SIZE {
-            padding_needed = 0;
-        }
-        s.update(&b" ".repeat(padding_needed as usize));
-
-        let mut curr_thread = 0usize;
-
-        for i in (padding_needed..num_hashes).step_by(SHA_BLOCK_SIZE as usize) {
-            threads[curr_thread].send((s.clone(), i)).unwrap();
-
-            s.update(&b" ".repeat(64));
-
-            curr_thread = (curr_thread + 1) % HASH_GEN_WORKER_THREADS;
-        }
-    });
-
-    thread_handles
-}
-
 pub(crate) fn get_hashes(
     start_str: &'static str,
-    num_hashes: NumSpacesType,
-) -> Receiver<Vec<HashLastDigitsPair>> {
+    num_hashes: LineMaskType,
+) -> Receiver<HashLastDigitsPair> {
     let (block_tx, block_rx) = mpsc::sync_channel(CHANNEL_SIZE);
 
-    get_hashes_in_threads(
-        start_str,
-        num_hashes,
-        (0..HASH_GEN_WORKER_THREADS)
-            .map(|_| {
-                let block_tx_c = block_tx.clone();
+    get_hashes_in_threads(start_str, num_hashes, |_| {
+        let block_tx_c = block_tx.clone();
 
-                move |hashes| {
-                    block_tx_c.send(hashes).unwrap();
-                }
-            })
-            .collect(),
-    );
+        move |hashes| {
+            block_tx_c.send(hashes).unwrap();
+        }
+    });
 
     block_rx
 }
