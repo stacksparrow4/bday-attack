@@ -71,7 +71,7 @@ where
     thread_handles
 }
 
-pub(crate) fn get_reversed_hashes(
+pub(crate) fn get_hashes(
     start_str: &'static str,
     num_hashes: NumSpacesType,
 ) -> Receiver<Vec<HashLastDigitsPair>> {

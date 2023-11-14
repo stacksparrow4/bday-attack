@@ -13,6 +13,10 @@ impl HashLastDigits {
         }
         Self { data }
     }
+
+    pub(crate) fn hash32(&self) -> u32 {
+        u32::from_le_bytes(self.data[(NUM_HASH_BYTES - 4)..].try_into().unwrap())
+    }
 }
 
 pub(crate) type HashLastDigitsPair = (HashLastDigits, NumSpacesType);
