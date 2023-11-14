@@ -25,12 +25,15 @@ fn gen_fake_filter() -> BitVec {
     println!("Generating filter...");
     let now = Instant::now();
 
+    let mut prog = Progress::new((NUM_HASHES as usize) * 2);
+
     let mut all_real = bitvec![0; 1<<32];
 
     let rx = get_hashes(REAL, NUM_HASHES);
     while let Ok(hs) = rx.recv() {
         for (h, _) in hs {
             all_real.set(h.hash32() as usize, true);
+            prog.increment();
         }
     }
 
@@ -45,6 +48,8 @@ fn gen_fake_filter() -> BitVec {
                 // This is a collision with something in the real array
                 filter_fake.set(hn as usize, true);
             }
+
+            prog.increment();
         }
     }
 
