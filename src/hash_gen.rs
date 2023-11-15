@@ -17,15 +17,16 @@ use crate::{
 
 fn hash_lines(
     lines: &Vec<&str>,
-    mut line_mask: LineMaskType,
     cache: &mut [Sha256],
-    prev_mask: Option<LineMaskType>,
-) -> HashLastDigits {
+    skip: usize,
+    mut line_mask: LineMaskType,
+    next_mask: Option<LineMaskType>,
+) -> (HashLastDigits, usize) {
     let num_lines = lines.len();
     let shift = (num_lines - 1) * 2;
 
-    let skip = prev_mask.map_or(0usize, |om| {
-        (line_mask ^ om).leading_zeros() as usize - (LineMaskType::BITS as usize - num_lines * 2)
+    let next_skip = next_mask.map_or(0usize, |nm| {
+        (line_mask ^ nm).leading_zeros() as usize - (LineMaskType::BITS as usize - num_lines * 2)
     }) / 2;
 
     line_mask <<= 2 * skip;
@@ -45,10 +46,14 @@ fn hash_lines(
         s.update(b"\n");
         line_mask <<= 2;
 
-        cache[i + 1] = s.clone();
+        // Make sure we don't cache anything that won't be used
+        let next_i = i + 1;
+        if next_i <= next_skip {
+            cache[next_i] = s.clone();
+        }
     }
 
-    HashLastDigits::from_full_hash(s.finish())
+    (HashLastDigits::from_full_hash(s.finish()), next_skip)
 }
 
 pub(crate) fn line_mask_to_file(fname: &str, data: &str, mut line_mask: LineMaskType) {
@@ -98,15 +103,27 @@ where
             thread::spawn(move || {
                 let mut cache = (0..32).map(|_| Sha256::default()).collect::<Vec<Sha256>>();
                 let mut prev_mask = None;
+                let mut prev_skip = 0;
 
                 for line_mask in min..max {
                     if mask.is_none() || *mask.as_ref().unwrap().get(line_mask).unwrap() {
-                        let result = hash_lines(&lines, line_mask, &mut cache, prev_mask);
-                        prev_mask = Some(line_mask);
+                        if let Some(pm) = prev_mask {
+                            // Compute the previous one (so that we can cache the current one for next time)
+                            let (result, next_skip) =
+                                hash_lines(&lines, &mut cache, prev_skip, pm, Some(line_mask));
+                            consumer((result, pm));
 
-                        consumer((result, line_mask));
+                            prev_skip = next_skip;
+                        }
+
+                        prev_mask = Some(line_mask);
                     }
                 }
+
+                // Compute the final one
+                let (result, _) =
+                    hash_lines(&lines, &mut cache, prev_skip, prev_mask.unwrap(), None);
+                consumer((result, prev_mask.unwrap()));
             })
         })
         .collect()
