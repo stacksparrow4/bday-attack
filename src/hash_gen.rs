@@ -18,14 +18,20 @@ use crate::{
 fn hash_lines(
     lines: &Vec<&str>,
     mut line_mask: LineMaskType,
-    // cache: Vec<Sha256>,
-    // prev_mask: LineMaskType,
+    cache: &mut [Sha256],
+    prev_mask: Option<LineMaskType>,
 ) -> HashLastDigits {
     let num_lines = lines.len();
     let shift = (num_lines - 1) * 2;
 
-    let mut s = Sha256::default();
-    for l in lines {
+    let skip = prev_mask.map_or(0usize, |om| {
+        (line_mask ^ om).leading_zeros() as usize - (LineMaskType::BITS as usize - num_lines * 2)
+    }) / 2;
+
+    line_mask <<= 2 * skip;
+
+    let mut s = cache[skip].clone();
+    for (i, l) in lines.iter().enumerate().skip(skip) {
         s.update(l.as_bytes());
 
         let curr = (line_mask >> shift) & 0b11;
@@ -38,6 +44,8 @@ fn hash_lines(
 
         s.update(b"\n");
         line_mask <<= 2;
+
+        cache[i + 1] = s.clone();
     }
 
     HashLastDigits::from_full_hash(s.finish())
@@ -80,17 +88,22 @@ where
         .map(|worker_id| {
             let mut consumer = consumer_generator(worker_id);
 
+            let mask = mask.clone();
+
             let min = (worker_id * NUM_HASHES) / NUM_THREADS;
             let max = ((worker_id + 1) * NUM_HASHES) / NUM_THREADS;
 
             let lines: Vec<&str> = start_str.lines().collect();
 
-            let mask = mask.clone();
-
             thread::spawn(move || {
+                let mut cache = (0..32).map(|_| Sha256::default()).collect::<Vec<Sha256>>();
+                let mut prev_mask = None;
+
                 for line_mask in min..max {
                     if mask.is_none() || *mask.as_ref().unwrap().get(line_mask).unwrap() {
-                        let result = hash_lines(&lines, line_mask);
+                        let result = hash_lines(&lines, line_mask, &mut cache, prev_mask);
+                        prev_mask = Some(line_mask);
+
                         consumer((result, line_mask));
                     }
                 }
