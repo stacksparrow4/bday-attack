@@ -1,8 +1,8 @@
 // Configuration
-pub(crate) const NUM_HASHES: LineMaskType = 1000000;
-pub(crate) const DESIRED_HEX_MATCHES: usize = 9;
+pub(crate) const NUM_HASHES: LineMaskType = 4000 * 1000000;
+pub(crate) const DESIRED_HEX_MATCHES: usize = 16;
 
-pub(crate) const PREHASH_SIZE: usize = 35;
+pub(crate) const PREHASH_SIZE: usize = 36;
 
 // Optimization
 pub(crate) const NUM_THREADS: LineMaskType = 8;
